@@ -25,6 +25,10 @@ The top 10 used words were these:
 
 The first word is unfortunately a stopword, but the stopword dictionary contained it with a different ortography, using a special charater ("ß"). It also seems that the corpus contains english text as well, direct quotations from books written in english, so I have to clean these features too.
 
+Even in this state we could visualise Zipf's law though: 
+
+![alt text](https://github.com/gbokonyi/text_mining_term_project/blob/master/plot_zipf.png)
+
 After the last data cleaning, the top 10 used words were these:
 
 1.  geld	      390	
@@ -40,6 +44,10 @@ After the last data cleaning, the top 10 used words were these:
 
 
 The outcome is not so surprising: geld (money) is at the first place, as we would expect from an economics related blog. Also made to the top 10: bank / banken (banks), ökonomen (economists), unternehmen (enterprises) and geldpolitik (monetary policy).
+
+The final version of the Zipf's law plot looks like this:
+
+![alt text](https://github.com/gbokonyi/text_mining_term_project/blob/master/plot_zipf2.png)
 
 
 
