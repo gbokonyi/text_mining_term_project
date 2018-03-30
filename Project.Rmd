@@ -1,0 +1,172 @@
+---
+title: "Project assignment, Data Science on Unstructured Text Data"
+author: ""
+output:
+  html_document: default
+  pdf_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE} 
+# Clean up the memory
+rm(list=ls())
+# Clear the console
+cat("\f")
+```
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE} 
+# install.packages('tidyverse')
+# install.packages('tidytext')
+# install.packages('dplyr')
+# install.packages('ggplot2')
+# install.packages('scales')
+# install.packages('stringr')
+# install.packages('tm')
+# install.packages('topicmodels')
+# install.packages('rvest')
+# install.packages('data.table')
+# install.packages('Rcrawler')
+
+library(tidyverse)
+library(tidytext)
+library(dplyr)
+library(ggplot2)
+library(scales)
+library(stringr)
+library(tm)
+library(topicmodels)
+library(rvest)
+library(data.table)
+library(Rcrawler)  
+```
+
+Web crawling with Rcrawler: gathering relevant URLs for analysis:
+
+```{r}
+Rcrawler(Website ="http://blogs.faz.net/fazit/2017/", MaxDepth=2,Obeyrobots = FALSE, Timeout = 5, URLlenlimit = 255, NetwExtLinks = FALSE, urlregexfilter ="/2017/[0-9]{2}/[0-9]{2}/")
+```
+
+```{r}
+# save(INDEX, file = "INDEX.RData")
+# load("INDEX.RData")
+```
+
+Removing comment pages from URL list:
+
+```{r}
+index_unique <- INDEX%>%filter(str_detect(Url, "comment-page") != TRUE)
+dt_index <- data.table(index_unique )
+```
+
+Text parsing with rvest, and merging data:
+
+```{r}
+counter <- nrow(dt_index)
+
+for (x in 1:counter){
+
+page <- dt_index[x,Url]
+blogpost <- read_html(page)
+
+cast <- blogpost  %>%
+  html_nodes("p") %>% # %>% html_nodes("li")
+  html_text()
+dt_cast <- data.table(cast)
+dt_cast <- dt_cast[,url_address:=page]
+
+# assign(paste("dt_cast",x,sep=""), dt_cast)
+    
+    # if (exists("dt_cast_merged") && is.data.table(get("dt_cast_merged"))) {
+    if (exists("dt_cast_merged")) {
+      
+    dt_cast_merged <-bind_rows(dt_cast_merged, dt_cast)
+    } else {
+    dt_cast_merged <- dt_cast
+    }
+}
+```
+
+Some data cleaning:
+
+```{r}
+dt_cast_cleaned <- dt_cast_merged[!(str_detect(cast, "2017 von"))]
+dt_cast_cleaned <- dt_cast_cleaned[,.N, by=cast]
+dt_cast_cleaned <- dt_cast_cleaned[N==1, cast]
+dt_cast_cleaned <- data_frame(txt = dt_cast_cleaned)
+```
+
+Removing stopwords:
+
+```{r}
+stopwords <- stopwords("german")
+dt_stopwords <- data.table(stopwords)
+dt_stopwords <- rename(dt_stopwords, word=stopwords)
+
+```
+
+Unnesting tokens, counting words:
+
+```{r}
+
+dt_cast_cleaned_tidy <- dt_cast_cleaned %>% unnest_tokens(word, txt)
+dt_cast_cleaned_tidy <-  anti_join(dt_cast_cleaned_tidy, dt_stopwords)
+
+dt_cast_wordcount <- dt_cast_cleaned_tidy %>% count(word, sort = TRUE) 
+dt_cast_wordcount <- mutate(dt_cast_wordcount, rank = seq.int(nrow(dt_cast_wordcount)))
+
+ndistinct <- n_distinct(dt_cast_wordcount$word)
+ndistinct
+```
+
+Top 10 most frequent words used:
+
+```{r}
+dt_cast_wordcount[1:10,]
+```
+
+Zipf's law:
+
+```{r}
+plot_zipf <- ggplot(dt_cast_wordcount, aes(rank, n)) + geom_abline(intercept = 4.25, slope = -1, color = "gray50", linetype = 2) + geom_line(size = 1.1, alpha = 0.8, show.legend = FALSE) + scale_x_log10() + scale_y_log10() + ggtitle("Zipf's law in Fazit blogposts")+theme(plot.title = element_text(hjust = 0.5))
+
+plot_zipf
+ggsave("plot_zipf.png")
+```
+
+Final cleaning and plotting: 
+
+```{r}
+dt_stopwords2 <- bind_rows(dt_stopwords, list(word=c("dass", "mehr", "ja")))
+```
+
+```{r}
+data(stop_words)
+dt_cast_cleaned_tidy2 <- dt_cast_cleaned_tidy %>% anti_join(stop_words)
+```
+
+```{r}
+dt_cast_cleaned_tidy2 <-  anti_join(dt_cast_cleaned_tidy2, dt_stopwords2)
+
+dt_cast_wordcount2 <- dt_cast_cleaned_tidy2 %>% count(word, sort = TRUE) 
+dt_cast_wordcount2 <- mutate(dt_cast_wordcount2, rank = seq.int(nrow(dt_cast_wordcount2)))
+
+ndistinct2 <- n_distinct(dt_cast_wordcount2$word)
+ndistinct2
+```
+
+```{r}
+dt_cast_wordcount2[1:10,]
+```
+
+```{r}
+plot_zipf2 <- ggplot(dt_cast_wordcount2, aes(rank, n)) + geom_abline(intercept = 4.25, slope = -1, color = "gray50", linetype = 2) + geom_line(size = 1.1, alpha = 0.8, show.legend = FALSE) + scale_x_log10() + scale_y_log10()+ ggtitle("Zipf's law in Fazit blogposts after additional data cleaning")+theme(plot.title = element_text(hjust = 0.5))
+
+plot_zipf2
+ggsave("plot_zipf2.png")
+```
+
+
